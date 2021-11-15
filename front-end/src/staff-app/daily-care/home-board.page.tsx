@@ -27,14 +27,16 @@ export const HomeBoardPage: React.FC = () => {
   const [getStudents, data, loadState] = useApi<{ students: Person[] }>({
     url: "get-homeboard-students"
   });
-  const [sortStudentList, setSortStudentList] = useState([]);
+  const [sortStudentList, setSortStudentList] = useState<Person[]>([]);
 
   useEffect(() => {
     void getStudents();
   }, [getStudents]);
 
   useEffect(() => {
-    setSortStudentList(data?.students);
+    if (data?.students) {
+      setSortStudentList(data.students);
+    }
     performSort("");
   }, [data?.students]);
 
@@ -52,7 +54,7 @@ export const HomeBoardPage: React.FC = () => {
 
   const performSort = (type: string) => {
     const studentList = data?.students;
-    let orderedStudentList = [];
+    let orderedStudentList : Person[] = [];
     let toBeSortName = filterType?.sortName;
     let toBeSortOrder = filterType?.sortOrder;
     const filteredType = filterType;
@@ -71,15 +73,24 @@ export const HomeBoardPage: React.FC = () => {
       }
       filteredType.sortOrder = toBeSortOrder;
     }
-    if (studentList && toBeSortOrder === "ascending") {
+    if (studentList && toBeSortOrder === "ascending" && toBeSortName === "first_name") {
       orderedStudentList = studentList?.sort((a, b) =>
-        a?.[toBeSortName].localeCompare(b?.[toBeSortName])
+        a?.first_name.localeCompare(b?.first_name)
+      );
+    } else if (studentList && toBeSortOrder === "ascending" && toBeSortName === "last_name") {
+      orderedStudentList = studentList?.sort((a, b) =>
+        a?.last_name.localeCompare(b?.last_name)
+      );
+    } else if (studentList && toBeSortOrder === "descending" && toBeSortName === "first_name") {
+      orderedStudentList = studentList?.sort((a, b) =>
+        b?.first_name.localeCompare(a?.first_name)
       );
     } else if (studentList) {
       orderedStudentList = studentList?.sort((a, b) =>
-        b?.[toBeSortName].localeCompare(a?.[toBeSortName])
+        b?.last_name.localeCompare(a?.last_name)
       );
     }
+
     setSortStudentList(orderedStudentList);
     setFilterType(filteredType);
   };
@@ -95,7 +106,7 @@ export const HomeBoardPage: React.FC = () => {
 
   const searchEvent = (event: any) => {
     const value = event?.target?.value;
-    let filterStudents = data?.students;
+    let filterStudents : Person[] = data?.students || [];
     performSort("");
     if (value && value?.length > 0 && filterStudents) {
       filterStudents = filterStudents?.filter((student) =>
@@ -113,8 +124,8 @@ export const HomeBoardPage: React.FC = () => {
         <Toolbar
           onItemClick={onToolbarAction}
           handleChange={handleChange}
-          sortName={filterType?.sortName}
-          orderName={filterType?.sortOrder}
+          sortName={filterType?.sortName || ''}
+          orderName={filterType?.sortOrder || ''}
           nameChecked={nameChecked}
           orderChecked={orderChecked}
           searchEvent={searchEvent}
@@ -150,6 +161,12 @@ export const HomeBoardPage: React.FC = () => {
 type ToolbarAction = "roll" | "sort";
 interface ToolbarProps {
   onItemClick: (action: ToolbarAction, value?: string) => void;
+  handleChange: (event: any, type: string) => void;
+  sortName: string;
+  orderName: string;
+  nameChecked: boolean;
+  orderChecked: boolean;
+  searchEvent: (event: any) => void;
 }
 const Toolbar: React.FC<ToolbarProps> = (props) => {
   const {
