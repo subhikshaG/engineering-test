@@ -3,15 +3,37 @@ import styled from "styled-components"
 import Button from "@material-ui/core/Button"
 import { BorderRadius, Spacing } from "shared/styles/styles"
 import { RollStateList } from "staff-app/components/roll-state/roll-state-list.component"
+import { RolllStateType } from "shared/models/roll"
 
 export type ActiveRollAction = "filter" | "exit"
 interface Props {
   isActive: boolean
   onItemClick: (action: ActiveRollAction, value?: string) => void
+  currentRollState?: Map<number, RolllStateType>
+  totalStudents?: number
 }
 
 export const ActiveRollOverlay: React.FC<Props> = (props) => {
-  const { isActive, onItemClick } = props
+  const { isActive, onItemClick, currentRollState, totalStudents } = props
+
+  let count = {
+    all: totalStudents || 0,
+    present: 0,
+    late: 0,
+    absent: 0,
+  };
+
+  if (currentRollState) {
+    currentRollState.forEach((values) => {
+      if (values === 'present') {
+        count.present += 1;
+      } else if (values === 'late') {
+        count.late += 1;
+      } else if (values === 'absent') {
+        count.absent += 1;
+      }
+    });
+  }
 
   return (
     <S.Overlay isActive={isActive}>
@@ -20,10 +42,10 @@ export const ActiveRollOverlay: React.FC<Props> = (props) => {
         <div>
           <RollStateList
             stateList={[
-              { type: "all", count: 0 },
-              { type: "present", count: 0 },
-              { type: "late", count: 0 },
-              { type: "absent", count: 0 },
+              { type: "all", count: count.all },
+              { type: "present", count: count.present },
+              { type: "late", count: count.late },
+              { type: "absent", count: count.absent },
             ]}
           />
           <div style={{ marginTop: Spacing.u6 }}>

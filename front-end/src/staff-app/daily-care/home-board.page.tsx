@@ -14,6 +14,7 @@ import {
   ActiveRollOverlay,
   ActiveRollAction
 } from "staff-app/components/active-roll-overlay/active-roll-overlay.component";
+import { RolllStateType } from "shared/models/roll"
 
 export const HomeBoardPage: React.FC = () => {
   const initialFilterType = {
@@ -28,6 +29,7 @@ export const HomeBoardPage: React.FC = () => {
     url: "get-homeboard-students"
   });
   const [sortStudentList, setSortStudentList] = useState<Person[]>([]);
+  const [currentRollState, setCurrentRollState] = useState(new Map());
 
   useEffect(() => {
     void getStudents();
@@ -118,6 +120,12 @@ export const HomeBoardPage: React.FC = () => {
     setSortStudentList(filterStudents);
   };
 
+  const updateRollState = (studentID: number, roll: string) => {
+    if (studentID && roll) {
+      setCurrentRollState((prev) => new Map(prev.set(studentID, roll)))
+    }
+  }
+
   return (
     <>
       <S.PageContainer>
@@ -138,9 +146,10 @@ export const HomeBoardPage: React.FC = () => {
 
         {loadState === "loaded" && sortStudentList && (
           <>
-            {sortStudentList.map((s) => (
-              <StudentListTile key={s.id} isRollMode={isRollMode} student={s} />
-            ))}
+            {sortStudentList.map((s) => {
+              const rollState : RolllStateType = currentRollState.get(s.id) || "unmark";
+              return <StudentListTile key={s.id} isRollMode={isRollMode} rollState={rollState} student={s} setCurrentRollState={updateRollState}/>
+            })}
           </>
         )}
 
@@ -153,6 +162,8 @@ export const HomeBoardPage: React.FC = () => {
       <ActiveRollOverlay
         isActive={isRollMode}
         onItemClick={onActiveRollAction}
+        currentRollState={currentRollState}
+        totalStudents={data?.students?.length || 0}
       />
     </>
   );
