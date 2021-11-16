@@ -62,4 +62,4 @@ interface StateList {
   count: number
 }
 
-type ItemType = RolllStateType | "all"
+export type ItemType = RolllStateType | "all"

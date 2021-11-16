@@ -15,11 +15,14 @@ import {
   ActiveRollAction
 } from "staff-app/components/active-roll-overlay/active-roll-overlay.component";
 import { RolllStateType } from "shared/models/roll"
+import { ItemType } from "staff-app/components/roll-state/roll-state-list.component"
 
 export const HomeBoardPage: React.FC = () => {
   const initialFilterType = {
     sortName: "first_name",
-    sortOrder: "ascending"
+    sortOrder: "ascending",
+    rollOrder: "all",
+    searchQuery: ""
   };
   const [isRollMode, setIsRollMode] = useState(false);
   const [filterType, setFilterType] = useState(initialFilterType);
@@ -31,6 +34,7 @@ export const HomeBoardPage: React.FC = () => {
   const [sortStudentList, setSortStudentList] = useState<Person[]>([]);
   const [currentRollState, setCurrentRollState] = useState(new Map());
 
+  const currentStudentsList = data?.students || [];
   useEffect(() => {
     void getStudents();
   }, [getStudents]);
@@ -39,26 +43,33 @@ export const HomeBoardPage: React.FC = () => {
     if (data?.students) {
       setSortStudentList(data.students);
     }
+    // initial sort - ascending & by first name
     performSort("");
-  }, [data?.students]);
+  }, [currentStudentsList]);
 
+  // for showing roll
   const onToolbarAction = (action: ToolbarAction) => {
     if (action === "roll") {
       setIsRollMode(true);
     }
   };
 
-  const onActiveRollAction = (action: ActiveRollAction) => {
+  // for filtering based on roll, call sorting fn
+  const onActiveRollAction = (action: ActiveRollAction, value?: ItemType) => {
     if (action === "exit") {
       setIsRollMode(false);
     }
+    performSort(value)
   };
 
-  const performSort = (type: string) => {
-    const studentList = data?.students;
+  // perform various sorting operations
+  const performSort = (type?: string, filterStudents?: Person[]) => {
+    let studentList = filterStudents || data?.students || [];
     let orderedStudentList : Person[] = [];
     let toBeSortName = filterType?.sortName;
     let toBeSortOrder = filterType?.sortOrder;
+    let filterRollOrder = filterType?.rollOrder;
+    const searchQuery = filterType?.searchQuery;
     const filteredType = filterType;
     if (type === "nameSort") {
       if (filteredType?.sortName === "first_name") {
@@ -75,20 +86,39 @@ export const HomeBoardPage: React.FC = () => {
       }
       filteredType.sortOrder = toBeSortOrder;
     }
+
+    // if previous search query is present, filter first
+    if (type !== 'searchEvent' && searchQuery?.length > 0) {
+      studentList = searchEventSort(searchQuery, studentList);
+    }
+
+    // to filter based on roll state
+    if (type === "present" || type === "late" || type === "absent" || type === "all") {
+      filterRollOrder = type;
+    }
+
+    if (filterRollOrder !== "all" && studentList) {
+      studentList = studentList.filter((student) => currentRollState.get(student.id) === filterRollOrder);
+      filterType.rollOrder = filterRollOrder;
+    } else {
+      filterType.rollOrder = "all";
+    }
+
+    // sort list by name & order
     if (studentList && toBeSortOrder === "ascending" && toBeSortName === "first_name") {
-      orderedStudentList = studentList?.sort((a, b) =>
+      orderedStudentList = studentList.sort((a, b) =>
         a?.first_name.localeCompare(b?.first_name)
       );
     } else if (studentList && toBeSortOrder === "ascending" && toBeSortName === "last_name") {
-      orderedStudentList = studentList?.sort((a, b) =>
+      orderedStudentList = studentList.sort((a, b) =>
         a?.last_name.localeCompare(b?.last_name)
       );
     } else if (studentList && toBeSortOrder === "descending" && toBeSortName === "first_name") {
-      orderedStudentList = studentList?.sort((a, b) =>
+      orderedStudentList = studentList.sort((a, b) =>
         b?.first_name.localeCompare(a?.first_name)
       );
     } else if (studentList) {
-      orderedStudentList = studentList?.sort((a, b) =>
+      orderedStudentList = studentList.sort((a, b) =>
         b?.last_name.localeCompare(a?.last_name)
       );
     }
@@ -97,7 +127,8 @@ export const HomeBoardPage: React.FC = () => {
     setFilterType(filteredType);
   };
 
-  const handleChange = (event: any, type: string) => {
+  // for handling sort toggle
+  const handleFilterChange = (event: any, type: string) => {
     performSort(type);
     if (type === "nameSort") {
       setNameChecked(event?.target?.checked);
@@ -106,20 +137,31 @@ export const HomeBoardPage: React.FC = () => {
     }
   };
 
-  const searchEvent = (event: any) => {
-    const value = event?.target?.value;
-    let filterStudents : Person[] = data?.students || [];
-    performSort("");
+  // filter based on search value
+  const searchEventSort = (value: string, filterStudents: Person[]) => {
+    let searchFilteredStudents = filterStudents;
     if (value && value?.length > 0 && filterStudents) {
-      filterStudents = filterStudents?.filter((student) =>
+      searchFilteredStudents = filterStudents?.filter((student) =>
         `${student?.first_name?.toLowerCase()} ${student?.last_name?.toLowerCase()}`.includes(
           value.toLowerCase()
         )
       );
     }
-    setSortStudentList(filterStudents);
+    const filterTypeValue = filterType;
+    filterTypeValue.searchQuery = value;
+    setFilterType(filterTypeValue);
+    return searchFilteredStudents;
+  }
+
+  // on change for search field
+  const searchEvent = (event: any) => {
+    const value = event?.target?.value;
+    let filterStudents : Person[] = data?.students || [];
+    filterStudents = searchEventSort(value, filterStudents);
+    performSort("searchEvent", filterStudents);
   };
 
+  // store roll state
   const updateRollState = (studentID: number, roll: string) => {
     if (studentID && roll) {
       setCurrentRollState((prev) => new Map(prev.set(studentID, roll)))
@@ -131,7 +173,7 @@ export const HomeBoardPage: React.FC = () => {
       <S.PageContainer>
         <Toolbar
           onItemClick={onToolbarAction}
-          handleChange={handleChange}
+          handleFilterChange={handleFilterChange}
           sortName={filterType?.sortName || ''}
           orderName={filterType?.sortOrder || ''}
           nameChecked={nameChecked}
@@ -172,7 +214,7 @@ export const HomeBoardPage: React.FC = () => {
 type ToolbarAction = "roll" | "sort";
 interface ToolbarProps {
   onItemClick: (action: ToolbarAction, value?: string) => void;
-  handleChange: (event: any, type: string) => void;
+  handleFilterChange: (event: any, type: string) => void;
   sortName: string;
   orderName: string;
   nameChecked: boolean;
@@ -183,7 +225,7 @@ const Toolbar: React.FC<ToolbarProps> = (props) => {
   const {
     onItemClick,
     nameChecked,
-    handleChange,
+    handleFilterChange,
     sortName,
     orderName,
     orderChecked,
@@ -194,13 +236,13 @@ const Toolbar: React.FC<ToolbarProps> = (props) => {
       <div>{sortName === "first_name" ? "First Name" : "Last Name"}</div>
       <Switch
         checked={nameChecked}
-        onChange={(event) => handleChange(event, "nameSort")}
+        onChange={(event) => handleFilterChange(event, "nameSort")}
         inputProps={{ "aria-label": "controlled" }}
       />
       <div>{orderName === "ascending" ? "Ascending" : "Descending"}</div>
       <Switch
         checked={orderChecked}
-        onChange={(event) => handleChange(event, "orderSort")}
+        onChange={(event) => handleFilterChange(event, "orderSort")}
         inputProps={{ "aria-label": "controlled" }}
       />
       <input placeholder="Search" onChange={(event) => searchEvent(event)} />
